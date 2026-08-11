@@ -368,12 +368,58 @@ document.addEventListener('DOMContentLoaded', async function() {
     }
 
     // Added: non-destructive link to the new Paradiplomacia sub-page.
+    // Placed inside the page's own nav button group when found, so it
+    // flows with the real menu instead of a hardcoded fixed position
+    // that would sit on top of it. The app's own UI (React/Babel) mounts
+    // asynchronously after this script runs, so the nav may not exist
+    // yet — retry for a few seconds before giving up and falling back to
+    // a fixed pill placed below the (measured) header height.
     try {
-      const a = document.createElement('a');
-      a.href = './paradiplomacia/';
-      a.textContent = 'Paradiplomacia →';
-      a.style.cssText = 'position:fixed;top:16px;right:16px;z-index:99998;background:#0d2236;color:#e5c77f;font:600 12px/1 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.3px;text-transform:uppercase;padding:10px 16px;border-radius:999px;border:1px solid rgba(204,161,78,.5);text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)';
-      document.body.appendChild(a);
+      function findStickyHeader() {
+        const all = document.querySelectorAll('body *');
+        for (const el of all) {
+          const cs = getComputedStyle(el);
+          if (cs.position === 'sticky' || cs.position === 'fixed') {
+            const r = el.getBoundingClientRect();
+            if (r.top <= 1 && r.width >= window.innerWidth * 0.8 && r.height > 0 && r.height < 140) {
+              return el;
+            }
+          }
+        }
+        return null;
+      }
+
+      function findNavGroup(header) {
+        const flexGroups = Array.from(header.querySelectorAll('div')).filter(function(d) {
+          return getComputedStyle(d).display === 'flex' && d.querySelector('a');
+        });
+        return flexGroups[flexGroups.length - 1] || null;
+      }
+
+      function placeLink(attempt) {
+        const a = document.createElement('a');
+        a.href = './paradiplomacia/';
+        a.textContent = 'Paradiplomacia →';
+
+        const header = findStickyHeader();
+        const targetGroup = header && findNavGroup(header);
+        if (targetGroup) {
+          a.style.cssText = 'display:inline-flex;align-items:center;background:#0d2236;color:#e5c77f;font:600 12px/1 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.3px;text-transform:uppercase;padding:7px 12px;border-radius:2px;border:1px solid rgba(204,161,78,.5);text-decoration:none;white-space:nowrap';
+          targetGroup.appendChild(a);
+          return;
+        }
+
+        if (attempt < 20) {
+          setTimeout(function() { placeLink(attempt + 1); }, 250);
+          return;
+        }
+
+        const headerHeight = header ? header.getBoundingClientRect().height : 0;
+        a.style.cssText = 'position:fixed;top:' + (16 + headerHeight) + 'px;right:16px;z-index:99998;background:#0d2236;color:#e5c77f;font:600 12px/1 -apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:.3px;text-transform:uppercase;padding:10px 16px;border-radius:999px;border:1px solid rgba(204,161,78,.5);text-decoration:none;box-shadow:0 4px 14px rgba(0,0,0,.35)';
+        document.body.appendChild(a);
+      }
+
+      placeLink(0);
     } catch (e) {}
   } catch (err) {
     setStatus('Error unpacking: ' + err.message);
